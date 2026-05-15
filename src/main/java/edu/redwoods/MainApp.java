@@ -32,8 +32,6 @@ public class MainApp extends Application{
 
     private Canvas canvas;
 
-    private List<GradientStop> stops;
-
     private double startX;
     private double startY;
     private double currentX;
