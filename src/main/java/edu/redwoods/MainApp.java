@@ -345,7 +345,7 @@ public class MainApp extends Application{
                         viewport
                 );
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
-                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setHeaderText("Saved");
                 alert.setContentText(file.getAbsolutePath());
                 alert.showAndWait();
