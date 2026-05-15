@@ -23,7 +23,6 @@ import javafx.animation.TranslateTransition;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
 import java.io.File;
-import java.util.List;
 
 public class MainApp extends Application{
 
