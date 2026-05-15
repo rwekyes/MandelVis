@@ -40,7 +40,7 @@ public class MainApp extends Application{
     private double currentY;
     private boolean dragging = false;
     private StackPane canvasHolder;
-
+    private WritableImage lastRenderedImage;
 
     @Override
     public void start(Stage stage) {
@@ -66,6 +66,8 @@ public class MainApp extends Application{
         renderer = new MandelbrotRenderer(gradientModel);
 
         canvas = new Canvas(1000, 750);
+
+        lastRenderedImage = new WritableImage(1000, 750);
 
         BorderPane root = new BorderPane();
 
@@ -209,7 +211,7 @@ public class MainApp extends Application{
                 WritableImage image = getValue();
                 GraphicsContext gc = canvas.getGraphicsContext2D();
                 gc.drawImage(image, 0, 0);
-
+                lastRenderedImage = image;
                 if (dragging) {
                     drawSelectionRectangle(gc);
                 }
@@ -264,7 +266,9 @@ public class MainApp extends Application{
         canvas.setOnMouseDragged(e -> {
             currentX = e.getX();
             currentY = e.getY();
-            render(); //redraw to show rectangle
+            GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.drawImage(lastRenderedImage, 0, 0);  // repaint the fractal
+            drawSelectionRectangle(gc);             // draw rectangle on top
         });
 
         canvas.setOnMouseReleased(e -> {
