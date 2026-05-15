@@ -180,15 +180,6 @@ public class MainApp extends Application{
         double halfRangeX = viewport.getRangeX() / 2.0;
         double halfRangeY = (newHeight / newWidth) * halfRangeX;
 
-        /*
-        viewport.zoom(
-                centerX - halfRangeX,
-                centerX + halfRangeX,
-                centerY - halfRangeY,
-                centerY + halfRangeY
-        );
-        */
-
     }
 
     private void render() {

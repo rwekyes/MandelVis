@@ -1,6 +1,5 @@
 package edu.redwoods;
 
-import javafx.collections.ObservableList;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
@@ -24,27 +23,6 @@ public class MandelbrotRenderer {
         this.gradientModel = gradientModel;
 
     }
-    /* Old render()
-    public WritableImage render(int width, int height, Viewport viewport) {
-        WritableImage image = new WritableImage(width, height);
-        PixelWriter pw = image.getPixelWriter();
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-
-                double cx = viewport.mapX(x, width);
-                double cy = viewport.mapY(y, height);
-
-                double iter = mandelbrot(cx, cy);
-
-                Color color = getColor(iter);
-                pw.setColor(x, y, color);
-            }
-        }
-
-        return image;
-    }
-    */
 
     public WritableImage render(int width, int height, Viewport viewport) {
 
