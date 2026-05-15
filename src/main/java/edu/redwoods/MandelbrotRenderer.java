@@ -122,7 +122,7 @@ public class MandelbrotRenderer {
 
         int newHeight = height * 4;
 
-        WritableImage image = new WritableImage(width, height);
+        WritableImage image = new WritableImage(newWidth, newHeight);
 
         double[][] iterBuffer = new double[newHeight][newWidth];
         int[] histogram = new int[maxIterations];
@@ -141,13 +141,13 @@ public class MandelbrotRenderer {
             for (int tx = 0; tx < newWidth; tx += tileSize) {
 
                 int startX = tx;
-                int endX = Math.min(tx + tileSize, width);
+                int endX = Math.min(tx + tileSize, newWidth);
                 int startY = ty;
-                int endY = Math.min(ty + tileSize, height);
+                int endY = Math.min(ty + tileSize, newHeight);
 
                 futures.add(executor.submit(new RenderTask(
                         startX, endX, startY, endY,
-                        width, height,
+                        newWidth, newHeight,
                         viewport,
                         iterBuffer,
                         histogram
