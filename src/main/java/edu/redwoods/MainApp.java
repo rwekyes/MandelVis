@@ -9,6 +9,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
@@ -340,8 +341,15 @@ public class MainApp extends Application{
                         viewport
                 );
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                alert.setHeaderText("Saved");
+                alert.setContentText(file.getAbsolutePath());
+                alert.showAndWait();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setHeaderText("Failed to Save");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
             }
         }
 
