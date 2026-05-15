@@ -9,6 +9,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.BorderPane;
@@ -22,7 +23,6 @@ import javafx.animation.TranslateTransition;
 import javafx.util.Duration;
 import javax.imageio.ImageIO;
 import java.io.File;
-import java.util.List;
 
 public class MainApp extends Application{
 
@@ -31,15 +31,13 @@ public class MainApp extends Application{
 
     private Canvas canvas;
 
-    private List<GradientStop> stops;
-
     private double startX;
     private double startY;
     private double currentX;
     private double currentY;
     private boolean dragging = false;
     private StackPane canvasHolder;
-
+    private WritableImage lastRenderedImage;
 
     @Override
     public void start(Stage stage) {
@@ -65,6 +63,8 @@ public class MainApp extends Application{
         renderer = new MandelbrotRenderer(gradientModel);
 
         canvas = new Canvas(1000, 750);
+
+        lastRenderedImage = new WritableImage(1000, 750);
 
         BorderPane root = new BorderPane();
 
@@ -177,15 +177,6 @@ public class MainApp extends Application{
         double halfRangeX = viewport.getRangeX() / 2.0;
         double halfRangeY = (newHeight / newWidth) * halfRangeX;
 
-        /*
-        viewport.zoom(
-                centerX - halfRangeX,
-                centerX + halfRangeX,
-                centerY - halfRangeY,
-                centerY + halfRangeY
-        );
-        */
-
     }
 
     private void render() {
@@ -208,7 +199,7 @@ public class MainApp extends Application{
                 WritableImage image = getValue();
                 GraphicsContext gc = canvas.getGraphicsContext2D();
                 gc.drawImage(image, 0, 0);
-
+                lastRenderedImage = image;
                 if (dragging) {
                     drawSelectionRectangle(gc);
                 }
@@ -263,7 +254,9 @@ public class MainApp extends Application{
         canvas.setOnMouseDragged(e -> {
             currentX = e.getX();
             currentY = e.getY();
-            render(); //redraw to show rectangle
+            GraphicsContext gc = canvas.getGraphicsContext2D();
+            gc.drawImage(lastRenderedImage, 0, 0);  // repaint the fractal
+            drawSelectionRectangle(gc);             // draw rectangle on top
         });
 
         canvas.setOnMouseReleased(e -> {
@@ -340,8 +333,15 @@ public class MainApp extends Application{
                         viewport
                 );
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null), "png", file);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setHeaderText("Saved");
+                alert.setContentText(file.getAbsolutePath());
+                alert.showAndWait();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setHeaderText("Failed to Save");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
             }
         }
 

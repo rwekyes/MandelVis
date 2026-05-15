@@ -1,12 +1,10 @@
 package edu.redwoods;
 
-import javafx.collections.ObservableList;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +12,6 @@ import java.util.concurrent.Future;
 
 public class MandelbrotRenderer {
 
-    private List<GradientStop> gradient = new ArrayList<>();
     private GradientModel gradientModel;
 
     private int maxIterations = 500;
@@ -24,27 +21,6 @@ public class MandelbrotRenderer {
         this.gradientModel = gradientModel;
 
     }
-    /* Old render()
-    public WritableImage render(int width, int height, Viewport viewport) {
-        WritableImage image = new WritableImage(width, height);
-        PixelWriter pw = image.getPixelWriter();
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-
-                double cx = viewport.mapX(x, width);
-                double cy = viewport.mapY(y, height);
-
-                double iter = mandelbrot(cx, cy);
-
-                Color color = getColor(iter);
-                pw.setColor(x, y, color);
-            }
-        }
-
-        return image;
-    }
-    */
 
     public WritableImage render(int width, int height, Viewport viewport) {
 
@@ -147,20 +123,93 @@ public class MandelbrotRenderer {
         int newHeight = height * 4;
 
         WritableImage image = new WritableImage(newWidth, newHeight);
+
+        double[][] iterBuffer = new double[newHeight][newWidth];
+        int[] histogram = new int[maxIterations];
+
+        int numThreads = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+
+        int tileSize = 64;
+
+        // -------------------------
+        // PASS 1: Compute iterations + histogram
+        // -------------------------
+        List<Future<?>> futures = new ArrayList<>();
+
+        for (int ty = 0; ty < newHeight; ty += tileSize) {
+            for (int tx = 0; tx < newWidth; tx += tileSize) {
+
+                int startX = tx;
+                int endX = Math.min(tx + tileSize, newWidth);
+                int startY = ty;
+                int endY = Math.min(ty + tileSize, newHeight);
+
+                futures.add(executor.submit(new RenderTask(
+                        startX, endX, startY, endY,
+                        newWidth, newHeight,
+                        viewport,
+                        iterBuffer,
+                        histogram
+                )));
+            }
+        }
+
+        // Wait for all threads
+        for (Future<?> f : futures) {
+            try {
+                f.get();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // -------------------------
+        // Build cumulative histogram
+        // -------------------------
+        int total = newWidth * newHeight;
+        double[] cumulative = new double[maxIterations];
+
+        double sum = 0;
+        for (int i = 0; i < maxIterations; i++) {
+            sum += histogram[i];
+            cumulative[i] = sum / total;
+        }
+
+        // -------------------------
+        // PASS 2: Color pixels
+        // -------------------------
         PixelWriter pw = image.getPixelWriter();
 
         for (int y = 0; y < newHeight; y++) {
             for (int x = 0; x < newWidth; x++) {
 
-                double cx = viewport.mapX(x, newWidth);
-                double cy = viewport.mapY(y, newHeight);
+                double iter = iterBuffer[y][x];
 
-                double iter = mandelbrot(cx, cy);
+                if (iter >= maxIterations) {
+                    pw.setColor(x, y, Color.BLACK);
+                    continue;
+                }
 
-                Color color = getColor(iter);
+                int base = (int) iter;
+                // Clamp to safe range
+                if (base >= maxIterations - 1) {
+                    base = maxIterations - 2;
+                }
+
+                double frac = iter - base;
+
+                double t1 = cumulative[base];
+                double t2 = cumulative[Math.min(base + 1, maxIterations - 1)];
+
+                double t = t1 + (t2 - t1) * frac;
+
+                Color color = getGradientColor(t);
                 pw.setColor(x, y, color);
             }
         }
+
+        executor.shutdown();
 
         return image;
     }
@@ -214,53 +263,6 @@ public class MandelbrotRenderer {
 
         return stops.get(stops.size() - 1).getColor();
     }
-
-    // Old getColor
-    private Color getColor(double iter) {
-
-        if (iter >= maxIterations) {
-            return Color.BLACK;
-        }
-
-        // double t = iter / maxIterations;
-        // Fix to control blocky look - smooths the gradient
-        double t = iter * 0.02;
-        t = t - Math.floor(t);
-        t = Math.pow(t, 0.8);
-
-        var stops = gradientModel.getStops();
-
-        if (stops.isEmpty()) {
-            return Color.BLACK;
-        }
-
-        // Clamp t to the range of the first and last stop
-        if (t <= stops.get(0).getPosition()) {
-            return stops.get(0).getColor();
-        }
-        if (t >= stops.get(stops.size() - 1).getPosition()) {
-            return stops.get(stops.size() - 1).getColor();
-        }
-
-        for (int i = 0; i < stops.size() - 1; i++) {
-            GradientStop a = stops.get(i);
-            GradientStop b = stops.get(i + 1);
-
-            if (t >= a.getPosition() && t <= b.getPosition()) {
-                double localT = (t - a.getPosition()) / (b.getPosition() - a.getPosition());
-                return a.getColor().interpolate(b.getColor(), localT);
-            }
-        }
-
-        // Fallback (should not be reached after clamping above)
-        return stops.get(stops.size() - 1).getColor();
-    }
-
-    public void addGradientStop(double position, Color color) {
-        gradient.add(new GradientStop(position, color));
-        gradient.sort(Comparator.comparingDouble(gs -> gs.getPosition()));
-    }
-
     public void setGradientModel(GradientModel gradientModel) {
         this.gradientModel = gradientModel;
     }
