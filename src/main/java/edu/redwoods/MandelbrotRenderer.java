@@ -81,9 +81,9 @@ public class MandelbrotRenderer {
                     pw.setColor(x, y, Color.BLACK);
                     continue;
                 }
-
+                // Power scales it closer to the edge cases, % 1.0 can be scaled as well
                 double tRaw = Math.log1p(iter) / logMax;
-                double t = (Math.pow(tRaw, 2.0) * numCycles) % 1.0;
+                double t = (Math.pow(tRaw, 4.0) * numCycles) % 1.0;
 
                 Color color = getGradientColor(t);
                 pw.setColor(x, y, color);
@@ -159,7 +159,7 @@ public class MandelbrotRenderer {
                 }
 
                 double tRaw = Math.log1p(iter) / logMax;
-                double t = (Math.pow(tRaw, 2.0) * numCycles) % 1.0;
+                double t = (Math.pow(tRaw, 4.0) * numCycles) % 1.0;
 
                 Color color = getGradientColor(t);
                 pw.setColor(x, y, color);
