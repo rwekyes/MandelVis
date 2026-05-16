@@ -15,6 +15,7 @@ public class MandelbrotRenderer {
     private GradientModel gradientModel;
 
     private int maxIterations = 500;
+    private int numCycles = 3;
 
     public MandelbrotRenderer(GradientModel gradientModel) {
 
@@ -27,7 +28,6 @@ public class MandelbrotRenderer {
         WritableImage image = new WritableImage(width, height);
 
         double[][] iterBuffer = new double[height][width];
-        int[] histogram = new int[maxIterations];
 
         int numThreads = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -35,7 +35,7 @@ public class MandelbrotRenderer {
         int tileSize = 64;
 
         // -------------------------
-        // PASS 1: Compute iterations + histogram
+        // PASS 1: Compute iterations
         // -------------------------
         List<Future<?>> futures = new ArrayList<>();
 
@@ -51,8 +51,7 @@ public class MandelbrotRenderer {
                         startX, endX, startY, endY,
                         width, height,
                         viewport,
-                        iterBuffer,
-                        histogram
+                        iterBuffer
                 )));
             }
         }
@@ -67,21 +66,11 @@ public class MandelbrotRenderer {
         }
 
         // -------------------------
-        // Build cumulative histogram
-        // -------------------------
-        int total = width * height;
-        double[] cumulative = new double[maxIterations];
-
-        double sum = 0;
-        for (int i = 0; i < maxIterations; i++) {
-            sum += histogram[i];
-            cumulative[i] = sum / total;
-        }
-
-        // -------------------------
         // PASS 2: Color pixels
         // -------------------------
         PixelWriter pw = image.getPixelWriter();
+
+        double logMax = Math.log1p(maxIterations);
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -92,19 +81,9 @@ public class MandelbrotRenderer {
                     pw.setColor(x, y, Color.BLACK);
                     continue;
                 }
-
-                int base = (int) iter;
-                // Clamp to safe range
-                if (base >= maxIterations - 1) {
-                    base = maxIterations - 2;
-                }
-
-                double frac = iter - base;
-
-                double t1 = cumulative[base];
-                double t2 = cumulative[Math.min(base + 1, maxIterations - 1)];
-
-                double t = t1 + (t2 - t1) * frac;
+                // Power scales it closer to the edge cases, % 1.0 can be scaled as well
+                double tRaw = Math.log1p(iter) / logMax;
+                double t = (Math.pow(tRaw, 4.0) * numCycles) % 1.0;
 
                 Color color = getGradientColor(t);
                 pw.setColor(x, y, color);
@@ -125,7 +104,6 @@ public class MandelbrotRenderer {
         WritableImage image = new WritableImage(newWidth, newHeight);
 
         double[][] iterBuffer = new double[newHeight][newWidth];
-        int[] histogram = new int[maxIterations];
 
         int numThreads = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -133,7 +111,7 @@ public class MandelbrotRenderer {
         int tileSize = 64;
 
         // -------------------------
-        // PASS 1: Compute iterations + histogram
+        // PASS 1: Compute iterations
         // -------------------------
         List<Future<?>> futures = new ArrayList<>();
 
@@ -149,8 +127,7 @@ public class MandelbrotRenderer {
                         startX, endX, startY, endY,
                         newWidth, newHeight,
                         viewport,
-                        iterBuffer,
-                        histogram
+                        iterBuffer
                 )));
             }
         }
@@ -165,21 +142,11 @@ public class MandelbrotRenderer {
         }
 
         // -------------------------
-        // Build cumulative histogram
-        // -------------------------
-        int total = newWidth * newHeight;
-        double[] cumulative = new double[maxIterations];
-
-        double sum = 0;
-        for (int i = 0; i < maxIterations; i++) {
-            sum += histogram[i];
-            cumulative[i] = sum / total;
-        }
-
-        // -------------------------
         // PASS 2: Color pixels
         // -------------------------
         PixelWriter pw = image.getPixelWriter();
+
+        double logMax = Math.log1p(maxIterations);
 
         for (int y = 0; y < newHeight; y++) {
             for (int x = 0; x < newWidth; x++) {
@@ -191,18 +158,8 @@ public class MandelbrotRenderer {
                     continue;
                 }
 
-                int base = (int) iter;
-                // Clamp to safe range
-                if (base >= maxIterations - 1) {
-                    base = maxIterations - 2;
-                }
-
-                double frac = iter - base;
-
-                double t1 = cumulative[base];
-                double t2 = cumulative[Math.min(base + 1, maxIterations - 1)];
-
-                double t = t1 + (t2 - t1) * frac;
+                double tRaw = Math.log1p(iter) / logMax;
+                double t = (Math.pow(tRaw, 4.0) * numCycles) % 1.0;
 
                 Color color = getGradientColor(t);
                 pw.setColor(x, y, color);
@@ -271,6 +228,10 @@ public class MandelbrotRenderer {
         this.maxIterations = newMaxIterations;
     }
 
+    public void setNumCycles(int numCycles) {
+        this.numCycles = numCycles;
+    }
+
     //Inner class to implement multi-threading
     class RenderTask implements Runnable {
 
@@ -278,13 +239,11 @@ public class MandelbrotRenderer {
         private final int width, height;
         private final Viewport viewport;
         private final double[][] iterBuffer;
-        private final int[] histogram;
 
         public RenderTask(int startX, int endX, int startY, int endY,
                           int width, int height,
                           Viewport viewport,
-                          double[][] iterBuffer,
-                          int[] histogram) {
+                          double[][] iterBuffer) {
 
             this.startX = startX;
             this.endX = endX;
@@ -294,14 +253,10 @@ public class MandelbrotRenderer {
             this.height = height;
             this.viewport = viewport;
             this.iterBuffer = iterBuffer;
-            this.histogram = histogram;
         }
 
         @Override
         public void run() {
-
-            // Thread-local histogram to avoid contention
-            int[] localHist = new int[maxIterations];
 
             for (int y = startY; y < endY; y++) {
                 for (int x = startX; x < endX; x++) {
@@ -309,21 +264,7 @@ public class MandelbrotRenderer {
                     double cx = viewport.mapX(x, width);
                     double cy = viewport.mapY(y, height);
 
-                    double iter = mandelbrot(cx, cy);
-
-                    iterBuffer[y][x] = iter;
-
-                    int index = (int) iter;
-                    if (index >= 0 && index < maxIterations) {
-                        localHist[index]++;
-                    }
-                }
-            }
-
-            // Merge local histogram into global
-            synchronized (histogram) {
-                for (int i = 0; i < maxIterations; i++) {
-                    histogram[i] += localHist[i];
+                    iterBuffer[y][x] = mandelbrot(cx, cy);
                 }
             }
         }
