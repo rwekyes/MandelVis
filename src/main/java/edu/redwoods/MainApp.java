@@ -286,7 +286,10 @@ public class MainApp extends Application{
             double newMinY = viewport.mapY((int) minY, (int) canvas.getHeight());
             double newMaxY = viewport.mapY((int) maxY, (int) canvas.getHeight());
 
-            viewport.zoom(newMinX, newMaxX, newMinY, newMaxY);
+            // zoomToSelection keeps the BigDecimal center precise by computing
+            // the new center as a delta from the old one rather than as an
+            // absolute coordinate that loses precision at deep zoom.
+            viewport.zoomToSelection(newMinX, newMaxX, newMinY, newMaxY);
 
             render();
         });
@@ -308,12 +311,9 @@ public class MainApp extends Application{
             double centerX = viewport.mapX((int) mouseX, (int) width);
             double centerY = viewport.mapY((int) mouseY, (int) height);
 
-            double newMinX = centerX + (viewport.getMinX() - centerX) * zoomFactor;
-            double newMaxX = centerX + (viewport.getMaxX() - centerX) * zoomFactor;
-            double newMinY = centerY + (viewport.getMinY() - centerY) * zoomFactor;
-            double newMaxY = centerY + (viewport.getMaxY() - centerY) * zoomFactor;
-
-            viewport.zoom(newMinX, newMaxX, newMinY, newMaxY);
+            // zoomAroundPoint keeps the BigDecimal center precise by working
+            // with a relative delta rather than computing absolute new bounds.
+            viewport.zoomAroundPoint(centerX, centerY, zoomFactor);
 
             render();
         });
@@ -348,7 +348,9 @@ public class MainApp extends Application{
     }
 
     private void resetImage() {
-        viewport.zoom(-2.5, 1.0, -1.5, 1.5);
+        // reset() re-seeds bigCenter from exact decimal strings, avoiding the
+        // small rounding error that would occur going through double constants.
+        viewport.reset();
         render();
     }
 

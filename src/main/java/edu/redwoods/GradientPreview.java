@@ -46,20 +46,39 @@ public class GradientPreview extends Canvas {
 
         var stops = model.getStops();
         if (stops.isEmpty()) return Color.BLACK;
+        if (stops.size() == 1) return stops.get(0).getColor();
+
+        GradientStop first = stops.get(0);
+        GradientStop last  = stops.get(stops.size() - 1);
+
+        // Same wrap-around logic as MandelbrotRenderer.getGradientColor so the
+        // preview strip matches exactly what gets rendered on the fractal.
+        double segLen = (1.0 - last.getPosition()) + first.getPosition();
+
+        if (t >= last.getPosition()) {
+            if (segLen <= 0) return last.getColor();
+            double localT = (t - last.getPosition()) / segLen;
+            return last.getColor().interpolate(first.getColor(), localT);
+        }
+
+        if (t <= first.getPosition()) {
+            if (segLen <= 0) return first.getColor();
+            double localT = (t + 1.0 - last.getPosition()) / segLen;
+            return last.getColor().interpolate(first.getColor(), localT);
+        }
 
         for (int i = 0; i < stops.size() - 1; i++) {
             GradientStop a = stops.get(i);
             GradientStop b = stops.get(i + 1);
 
             if (t >= a.getPosition() && t <= b.getPosition()) {
-                double localT =
-                        (t - a.getPosition()) /
-                                (b.getPosition() - a.getPosition());
+                double localT = (t - a.getPosition())
+                              / (b.getPosition() - a.getPosition());
                 return a.getColor().interpolate(b.getColor(), localT);
             }
         }
 
-        return stops.get(stops.size() - 1).getColor();
+        return last.getColor();
     }
 
     public void drawStopMarkers(GraphicsContext gc) {
