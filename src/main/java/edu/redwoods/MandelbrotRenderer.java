@@ -502,13 +502,40 @@ public class MandelbrotRenderer {
         var stops = gradientModel.getStops();
 
         if (stops.isEmpty()) return Color.BLACK;
+        if (stops.size() == 1) return stops.get(0).getColor();
 
-        if (t <= stops.get(0).getPosition())
-            return stops.get(0).getColor();
+        GradientStop first = stops.get(0);
+        GradientStop last  = stops.get(stops.size() - 1);
 
-        if (t >= stops.get(stops.size() - 1).getPosition())
-            return stops.get(stops.size() - 1).getColor();
+        // ---------------------------------------------------------------------
+        // Wrap-around segment: interpolate from the LAST stop back to the FIRST.
+        //
+        // Without this, the gradient clamps at both ends, so when the coloring
+        // formula cycles t back to 0 there is a hard jump between whatever color
+        // is at position 1.0 and whatever color is at position 0.0.
+        //
+        // With wrapping, that transition is a smooth blend just like any other
+        // adjacent pair of stops.  The wrap segment spans the gap between
+        // last.position and (1.0 + first.position) — i.e. the "empty" space on
+        // both sides of the stop list treated as a single bridging segment.
+        // ---------------------------------------------------------------------
+        double segLen = (1.0 - last.getPosition()) + first.getPosition();
 
+        if (t >= last.getPosition()) {
+            if (segLen <= 0) return last.getColor();
+            double localT = (t - last.getPosition()) / segLen;
+            return last.getColor().interpolate(first.getColor(), localT);
+        }
+
+        if (t <= first.getPosition()) {
+            if (segLen <= 0) return first.getColor();
+            // t is on the "far side" of the wrap — measure from last.position,
+            // looping through 1.0 to reach t.
+            double localT = (t + 1.0 - last.getPosition()) / segLen;
+            return last.getColor().interpolate(first.getColor(), localT);
+        }
+
+        // Standard case: find the segment that contains t.
         for (int i = 0; i < stops.size() - 1; i++) {
             GradientStop a = stops.get(i);
             GradientStop b = stops.get(i + 1);
@@ -519,6 +546,6 @@ public class MandelbrotRenderer {
             }
         }
 
-        return stops.get(stops.size() - 1).getColor();
+        return last.getColor();
     }
 }
